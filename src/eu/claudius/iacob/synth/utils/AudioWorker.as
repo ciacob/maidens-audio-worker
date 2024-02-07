@@ -1,5 +1,6 @@
 package eu.claudius.iacob.synth.utils {
 
+
 import eu.claudius.iacob.synth.sound.generation.SynthProxy;
 
 import flash.display.Sprite;
@@ -19,7 +20,6 @@ public class AudioWorker extends Sprite {
     private var _ownId:String;
 
     // Shareable ByteArray connectors to hold required I/O data.
-    private var _outputBytes:ByteArray;
 
     // Actual input data to use.
     private var _tracksSlice:Array;
@@ -291,7 +291,7 @@ public class AudioWorker extends Sprite {
         // the AudioWorker class, the `endian` property of that Array reads "bigEndian". So we manually reinforce it
         // here.
         $$('Retrieving _outputBytes...');
-        _outputBytes = _getProperty(WorkersCommon.OUTPUT_BYTES + _ownId) as ByteArray;
+        var _outputBytes:ByteArray = _getProperty(WorkersCommon.OUTPUT_BYTES + _ownId) as ByteArray;
         $$('Done.');
 
         _outputBytes.endian = Endian.LITTLE_ENDIAN;
