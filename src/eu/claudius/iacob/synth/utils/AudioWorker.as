@@ -1,6 +1,7 @@
 package eu.claudius.iacob.synth.utils {
 
 
+import eu.claudius.iacob.synth.constants.WorkersCommon;
 import eu.claudius.iacob.synth.sound.generation.SynthProxy;
 
 import flash.display.Sprite;
@@ -20,6 +21,7 @@ public class AudioWorker extends Sprite {
     private var _ownId:String;
 
     // Shareable ByteArray connectors to hold required I/O data.
+    public var _outputBytes:ByteArray;
 
     // Actual input data to use.
     private var _tracksSlice:Array;
@@ -31,21 +33,22 @@ public class AudioWorker extends Sprite {
     private var _setupReady:Boolean;
     private var _soundsCache:Object;
     private var _thisWorker:Worker;
-    private var _auditMessages:Array;
+    private var _auditMessages:Array = [];
 
     /**
-     * Reusable Worker definition that can be externally initialized, configured and run.
+     * Reusable Worker definition that can be externally initialized, configured, and run.
      *
-     * Its purpose is to render a provided chunk of organized audio map (a "tracks slice") into a provided (shared)
-     * ByteArray, and signal out when cone via a specific MessageChannel. The calling code can then decide to assign it
-     * a new task or decommission it.
+     * Its purpose is to render a provided chunk of organized audio map (referred to as a "tracks slice") into a provided
+     * (shared) ByteArray and signal-out when done via a specific MessageChannel. The calling code can then decide to assign
+     * it a new task or decommission it.
      *
-     * More than one Worker can be rendering audio at the same time, provided that the calling code properly sets them
-     * up, so that no conflicts occur.
+     * More than one Worker can render audio simultaneously, provided that the calling code properly sets them up to avoid
+     * conflicts.
      *
-     * Using Workers in the way described above enables "streaming" the audio, i.e., converting the organized audio map
-     * into audio while the audio is playing (technically, with a certain lag, because a buffer is used). This is much
-     * more acceptable than waiting for the entire audio to render before being able to start playback.
+     * Utilizing Workers in this manner facilitates streaming audio, allowing for the conversion of the organized audio map
+     * into audio while playback is ongoing (with a certain lag due to buffer usage). This approach is preferable to waiting
+     * for the entire audio to render before commencing playback, offering advantages such as improved performance and reduced
+     * latency.
      */
     public function AudioWorker() {
 
@@ -59,8 +62,9 @@ public class AudioWorker extends Sprite {
     }
 
     /**
-     * Executed when a message is received via the "inbound" communication channel. It is expected that all inbound
-     * communication consist in AMF serialized Objects that contain the "name" and "payload" for executing a command.
+     * Executed when a message is received via the "inbound" communication channel. It is expected that every inbound
+     * communication consists of an Action Message Format (AMF)-serialized Object containing a "name" and a "payload" that
+     * describe how to proceed with a task.
      * @param event
      */
     private function _onMessageReceived(event:Event):void {
@@ -101,7 +105,8 @@ public class AudioWorker extends Sprite {
 
     /**
      * Executes one of a subset of known commands, based on the received info. Handles calling and execution errors, and
-     * reports back via the outbound communication channel, to report success or failure.
+     * reaches out via the outbound communication channel, to report success or failure.
+     *
      * @param   name
      *          The name of the command to be run.
      *
@@ -127,8 +132,8 @@ public class AudioWorker extends Sprite {
         switch (name) {
 
                 // "Setup" the worker, that is, give it its input tracks, output storage, session name, and the sounds
-                // to work with. An worker can be "reused" by completely changing its assignment after it has done
-                // executing its current assignment (thus saving CPU time, because destroying and creating workers is a
+                // to work with. A worker can be "reused" by completely changing its assignment after it has done
+                // executing the current one (thus saving CPU time, because destroying and re-creating workers is a
                 // time-consuming process).
             case WorkersCommon.COMMAND_SETUP_WORKER:
                 if (_renderingInProgress) {
@@ -171,7 +176,7 @@ public class AudioWorker extends Sprite {
     }
 
     /**
-     * Reports back failure to start executing a specific command, along with useful information.
+     * Reports back failure to START EXECUTING a specific command, along with useful information.
      *
      * @param   name
      *          Rejected command's name.
@@ -195,7 +200,7 @@ public class AudioWorker extends Sprite {
     }
 
     /**
-     * Reports back an error occurred while executing a specific command, along with useful information.
+     * Reports back an error that occurred WHILE EXECUTING a specific command, along with useful information.
      *
      * @param   name
      *          Name of the command that caused an error while running.
@@ -247,19 +252,20 @@ public class AudioWorker extends Sprite {
      * (because, in this case, not providing the same session id every time would override the older writings instead
      * of merging them).
      *
-     * @return  Returns `true` if input, output ans session id seem about right, and rendering audio can be attempted;
-     *          return `false` otherwise (e.g., if there is nothing to be rendered because the input is empty).
+     * @return  Returns `true` if input, output ans session id all seem about right, and rendering audio can be
+     *          attempted; returns `false` otherwise (e.g., if there is nothing to be rendered because the input is
+     *          empty).
      */
     private function _setup():Boolean {
         var $$:Function = _auditMessages.push;
 
         $$('Retrieving shared sounds...');
         var soundsRetrieved:Boolean = _retrieveSharedSounds();
-        $$('Done.');
+        $$(soundsRetrieved? 'Done.' : 'Fail.');
 
         $$('Retrieving input bytes...');
         var inputBytes:ByteArray = (_getProperty(WorkersCommon.INPUT_TRACKS + _ownId) as ByteArray);
-        $$('Done.');
+        $$((inputBytes && inputBytes.length)? 'Done.' : 'Fail.');
 
         if (inputBytes && inputBytes.length) {
             $$('inputBytes.length:', inputBytes.length);
@@ -267,13 +273,13 @@ public class AudioWorker extends Sprite {
 
             $$('Reading tracks slice...');
             _tracksSlice = (inputBytes.readObject() as Array);
-            $$('Done.');
+            $$((_tracksSlice && _tracksSlice.length)? 'Done.' : 'Fail.');
         }
         var mustRecreateProxy:Boolean = false;
 
         $$('Retrieving session bytes...');
         var sessionBytes:ByteArray = (_getProperty(WorkersCommon.SESSION_ID + _ownId) as ByteArray);
-        $$('Done.');
+        $$((sessionBytes && sessionBytes.length)? 'Done.' : 'Fail.');
 
         if (sessionBytes && sessionBytes.length) {
             $$ ('sessionBytes.length:', sessionBytes.length);
@@ -291,8 +297,8 @@ public class AudioWorker extends Sprite {
         // the AudioWorker class, the `endian` property of that Array reads "bigEndian". So we manually reinforce it
         // here.
         $$('Retrieving _outputBytes...');
-        var _outputBytes:ByteArray = _getProperty(WorkersCommon.OUTPUT_BYTES + _ownId) as ByteArray;
-        $$('Done.');
+        _outputBytes = _getProperty(WorkersCommon.OUTPUT_BYTES + _ownId) as ByteArray;
+        $$(_outputBytes? 'Done.' : 'Fail.');
 
         _outputBytes.endian = Endian.LITTLE_ENDIAN;
         if (_proxy == null || mustRecreateProxy) {
@@ -303,7 +309,7 @@ public class AudioWorker extends Sprite {
 
     /**
      * Actually renders given input "tracks" into given output "audioStorage". Sets a blocking flag during the process
-     * and reports back when do via the outbound communication channel.
+     * and reports back when done, via the outbound communication channel.
      *
      * @see SynthProxy.preRenderAudio()
      */
