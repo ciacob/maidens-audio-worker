@@ -219,7 +219,7 @@ public class AudioWorker extends Sprite {
             note[WorkersCommon.COMMAND_PAYLOAD] = details;
         }
         note[WorkersCommon.EXECUTION_ERROR_ID] = error.errorID;
-        note[WorkersCommon.EXECUTION_ERROR_MESSAGE] = error.message +
+        note[WorkersCommon.EXECUTION_AUDIT_MESSAGE] = error.message +
                 (_auditMessages ? '\n' + _auditMessages.join('\n') : '');
         note[WorkersCommon.WORKER_OWN_ID] = _ownId;
         _outChannel.send(note);
@@ -241,6 +241,8 @@ public class AudioWorker extends Sprite {
         if (details) {
             note[WorkersCommon.COMMAND_PAYLOAD] = details;
         }
+        note[WorkersCommon.EXECUTION_AUDIT_MESSAGE] = 'Additional info: ' +
+                (_auditMessages ? '\n' + _auditMessages.join('\n') : 'none');
         note[WorkersCommon.WORKER_OWN_ID] = _ownId;
         _outChannel.send(note);
     }
