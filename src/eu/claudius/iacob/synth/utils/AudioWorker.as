@@ -212,6 +212,7 @@ public class AudioWorker extends Sprite {
      *          The Error object raised while executing the command.
      */
     private function _reportCommandExecutionError(name:String, details:Object, error:Error):void {
+        _renderingInProgress = false;
         var note:Object = {};
         note[WorkersCommon.REPORT_NAME] = WorkersCommon.COMMAND_EXECUTION_ERROR;
         note[WorkersCommon.COMMAND_NAME] = name;
