@@ -2,6 +2,8 @@ package eu.claudius.iacob.synth.utils {
 
 
 import eu.claudius.iacob.synth.constants.WorkersCommon;
+import eu.claudius.iacob.synth.interfaces.ISynthEngine;
+import eu.claudius.iacob.synth.sound.AlchemySynthEngine;
 import eu.claudius.iacob.synth.sound.generation.SynthProxy;
 
 import flash.display.Sprite;
@@ -14,11 +16,14 @@ import flash.utils.Endian;
 
 public class AudioWorker extends Sprite {
 
-    // Helpers
+    // Helpers 
     private var _getProperty:Function;
     private var _outChannel:MessageChannel;
     private var _inChannel:MessageChannel;
     private var _ownId:String;
+
+    // Synth engine to use
+    private var _synthEngine:ISynthEngine;
 
     // Shareable ByteArray connectors to hold required I/O data.
     public var _outputBytes:ByteArray;
@@ -51,6 +56,8 @@ public class AudioWorker extends Sprite {
      * latency.
      */
     public function AudioWorker() {
+        // Initialize synth to use
+        _synthEngine = new AlchemySynthEngine;
 
         // Initialize helpers and communications
         _thisWorker = Worker.current;
@@ -305,7 +312,7 @@ public class AudioWorker extends Sprite {
 
         _outputBytes.endian = Endian.LITTLE_ENDIAN;
         if (_proxy == null || mustRecreateProxy) {
-            _proxy = new SynthProxy(_outputBytes);
+            _proxy = new SynthProxy(_outputBytes, _synthEngine);
         }
         return (soundsRetrieved && _tracksSlice && (_tracksSlice.length > 0) && _session && _outputBytes);
     }
